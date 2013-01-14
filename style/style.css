@@ -1,0 +1,25 @@
+
+html {
+    background-color: #000;
+}
+
+#header {
+    color: #808080;
+    font-size: 18px;
+    font-weight: bold;
+    font-family:Tahoma;
+
+    float:right;
+    margin-bottom: 6px;
+}
+
+#container {
+    /*text-align: center;
+	background: #111;
+	width: 400px;
+	height: 300px;*/
+}
+
+#stats {
+    position: absolute;
+}
