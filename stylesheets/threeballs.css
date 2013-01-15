@@ -1,25 +1,31 @@
 
 html {
     background-color: #000;
+    background-image: url(../images/squares.png);
 }
 
 #header {
-    color: #808080;
+    color: #AAAAAA;
     font-size: 18px;
     font-weight: bold;
-    font-family:Tahoma;
+    font-family: Tahoma;
 
-    float:right;
-    margin-bottom: 6px;
+    margin: 16px 16px 32px 16px;
 }
 
-#container {
-    /*text-align: center;
-	background: #111;
-	width: 400px;
-	height: 300px;*/
+#header>#title {
+    padding: 4px;
 }
 
 #stats {
-    position: absolute;
+    float: right;
+}
+
+#container {
+	width: 960px;
+	height: 540px;
+
+    margin: 0 auto;
+
+    box-shadow: 0 0 10px #BBBBBB;
 }
