@@ -305,7 +305,7 @@
     
         renderer.setSize(w, h);
         */
-        console.log($container.offset().top);
+
         var w = $container.width();
 
         camera.updateProjectionMatrix();
@@ -383,4 +383,6 @@
     //    }
     //});
 
+
+    onWindowResize();
 });
