@@ -7,13 +7,13 @@
 
     <!--<script type="text/javascript" src="//localhost:8000/socket.io/socket.io.js"></script>-->
     
-    <script type="text/javascript" src="js/animation.js"></script>
-    <script type="text/javascript" src="js/jquery.js"></script>
-    <script type="text/javascript" src="js/three.min.js"></script>
-    <script type="text/javascript" src="js/three.TrackballControls.js"></script>
-    <script type="text/javascript" src="js/stats.js"></script>
+    <script type="text/javascript" src="javascripts/animation.js"></script>
+    <script type="text/javascript" src="javascripts/jquery.js"></script>
+    <script type="text/javascript" src="javascripts/three.min.js"></script>
+    <script type="text/javascript" src="javascripts/three.TrackballControls.js"></script>
+    <script type="text/javascript" src="javascripts/stats.js"></script>
 
-    <link href="style/style.css" rel="stylesheet" type="text/css" media="all" />
+    <link href="stylesheets/threebals.css" rel="stylesheet" type="text/css" media="all" />
 </head>
 <body style="margin:0">
 
@@ -118,7 +118,7 @@
     }
 
 
-    var planeTexture = THREE.ImageUtils.loadTexture("res/plane.png");
+    var planeTexture = THREE.ImageUtils.loadTexture("images/plane.png");
     planeTexture.wrapS = planeTexture.wrapT = THREE.MirroredRepeatWrapping;
     planeTexture.repeat.set(25, 25);
 
