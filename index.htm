@@ -6,7 +6,8 @@
 
 
     <!--<script type="text/javascript" src="//localhost:8000/socket.io/socket.io.js"></script>-->
-
+    
+    <script type="text/javascript" src="js/animation.js"></script>
     <script type="text/javascript" src="js/jquery.js"></script>
     <script type="text/javascript" src="js/three.min.js"></script>
     <script type="text/javascript" src="js/three.TrackballControls.js"></script>
@@ -66,7 +67,7 @@
     var camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
 
     // the camera starts at 0,0,0 so pull it back
-    camera.position.z = 750;
+    camera.position.z = 1700;
     camera.position.y = 00;
 
 
@@ -101,7 +102,6 @@
 
     // create the sphere's material
     var shininess = 200,
-        opacity = 0.7,
         sphereColors = [0xCC1111, 0xCCCC11, 0x11CC11],
         sphereMaterials = []
     ;
@@ -111,18 +111,11 @@
 	    {
 	        color: sphereColors[i],
 	        transparent: true,
-	        opacity: opacity,
 	        specular: 0x555555, shininess: shininess
 	    });
 
         sphereMaterials.push(sphereMaterial);
     }
-
-    var spherespotLightMaterial = new THREE.MeshBasicMaterial(
-	{
-	    color: 0xFFFF88
-        , opacity: 0.75
-	});
 
 
     var planeTexture = THREE.ImageUtils.loadTexture("res/plane.png");
@@ -172,7 +165,7 @@
 
     var spheres = function initSpheres() {
         var radius = 50,
-			segments = 16,
+			segments = 32,
 			rings = segments
         ;
 
@@ -243,11 +236,11 @@
 	 ***********/
 
     // ambient
-    var ambientLight = new THREE.AmbientLight(0x1A1A1A);
+    var ambientLight = new THREE.AmbientLight(0x222222);
     scene.add(ambientLight);
 
     // create a point light
-    var spotLight = new THREE.SpotLight(0xAAAAAA);
+    var spotLight = new THREE.SpotLight(0xEEEEEE);
 
     spotLight.castShadow = true;
 
@@ -262,16 +255,14 @@
     spotLight.shadowDarkness = 0.1;
 
     // set its position
-    spotLight.position.x = 105;
+    spotLight.position.x = -150;
     spotLight.position.y = 500;
     spotLight.position.z = 500;
 
     scene.add(spotLight);
 
     // create a point light
-    var spotLight2 = new THREE.SpotLight(0xAAAAAA);
-
-    spotLight2.castShadow = true;
+    var spotLight2 = new THREE.SpotLight(0x555555);
 
     spotLight2.shadowCameraNear = 600;
     spotLight2.shadowCameraFar = 1500;
@@ -284,9 +275,9 @@
     spotLight2.shadowDarkness = 0.1;
 
     // set its position
-    spotLight2.position.x = -500;
-    spotLight2.position.y = 500;
-    spotLight2.position.z = 500;
+    spotLight2.position.x = 0;
+    spotLight2.position.y = -500;
+    spotLight2.position.z = 1;
 
     scene.add(spotLight2);
 
@@ -307,28 +298,27 @@
 
 
 
-    // init my object
-    gd = {
-        update: function (time) {
+    // init my objects
 
-            window.requestAnimationFrame(gd.update);
+    function update(time) {
 
-            controls.update();
+        window.requestAnimationFrame(update);
 
-            //spotLight.position.x = Math.cos(time / 900) * 50 - 25;
-            //spotLight.position.y = Math.cos(time / 900) * 50 - 25 + 600;
+        controls.update();
 
-            //spherespotLight.position = spotLight.position;
+        //spotLight.position.x = Math.cos(time / 900) * 50 - 25;
+        //spotLight.position.y = Math.cos(time / 900) * 50 - 25 + 600;
 
-            stats.update();
-            renderer.render(scene, camera);
-        },
+        //spherespotLight.position = spotLight.position;
 
-        ledState: [false, false, false]
+        stats.update();
+        renderer.render(scene, camera);
     };
 
+    ledState = [false, false, false];
+
     // draw!
-    gd.update();
+    update();
 
 
 
@@ -381,19 +371,36 @@
                 id = o.name.charAt(o.name.length-1)*1
             ;
 
-            if (gd.ledState[id] == true) {
-                gd.ledState[id] = false;
+            if (ledState[id] == true) {
+                ledState[id] = false;
                 sphereLights[id].intensity = .1;
-                o.material.opacity = 0.6;
                 o.material.emissive = new THREE.Color(0);                
             } else {
-                gd.ledState[id] = true;
+                ledState[id] = true;
                 sphereLights[id].intensity = .8;
-                o.material.opacity = 1;
                 o.material.emissive = o.material.color;
             }
         }
 
     }, false);
+
+    __marg = 1500 - 900;
+    camera.position.z = 900;
+    animation.animate({
+        duration: 4000,
+        delta: animation.makeEaseOut(animation.elastic),
+        step: function (d) {
+            camera.position.z = 1500 - __marg * d;
+        }
+    });
+    //animation.animate({
+    //    duration: 3500,
+    //    delta: animation.makeEaseOut(animation.elastic),
+    //    step: function (d) {
+    //        camera.position.y = d * 1080 - 960;
+    //        camera.position.x = d * 1080 - 960;
+    //    }
+    //});
+
 </script>
 </html>
