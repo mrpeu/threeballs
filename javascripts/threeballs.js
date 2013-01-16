@@ -57,7 +57,7 @@
     /* CONTROLS */
 
     // init the mouse control
-    /*
+    
     controls = new THREE.TrackballControls(camera, $container[0]);
     controls.target.set(0, 0, 0);
 
@@ -72,7 +72,8 @@
     controls.dynamicDampingFactor = 0.15;
 
     controls.keys = [65, 83, 68];
-    */
+    
+    controls.enabled = false;
 
 
     /************
@@ -286,7 +287,7 @@
 
         window.requestAnimationFrame(update);
 
-        //controls.update();
+        controls.update();
 
         //spotLight.position.x = Math.cos(time / 900) * 50 - 25;
         //spotLight.position.y = Math.cos(time / 900) * 50 - 25 + 600;
