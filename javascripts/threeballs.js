@@ -25,10 +25,16 @@
     // create a WebGL renderer, camera
     // and a scene
     var renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.shadowMapEnabled = true;
-    renderer.shadowMapType = THREE.PCFShadowMap;
-    // to antialias the shadow
-    renderer.shadowMapSoft = true;
+
+    var IsFloatTextures = renderer.context.getExtension('OES_texture_float') != null;
+
+    // enable shadowmap
+    if(IsFloatTextures){
+        renderer.shadowMapEnabled = true;
+        renderer.shadowMapType = THREE.PCFShadowMap;
+        // to antialias the shadow
+        renderer.shadowMapSoft = true;
+    }
 
     // start the renderer
     renderer.setSize(WIDTH, HEIGHT);
@@ -80,14 +86,16 @@
     ;
 
     for (var i = 0; i < 3; i++) {
-        var sphereMaterial = new THREE.MeshPhongMaterial(
-        {
+        var matOpt = {
             color: sphereColors[i],
             transparent: true,
             specular: 0x555555, shininess: shininess
-        });
+        };
 
-        sphereMaterials.push(sphereMaterial);
+        sphereMaterials.push( IsFloatTextures ?
+            new THREE.MeshPhongMaterial(matOpt) :
+            new THREE.MeshLambertMaterial(matOpt)
+        );
     }
 
 
@@ -209,10 +217,11 @@
      ***********/
 
     // ambient
-    var ambientLight = new THREE.AmbientLight(0x222222);
+    var ambientLight = new THREE.AmbientLight(0x111111);
     scene.add(ambientLight);
 
     // create a point light
+
     var spotLight = new THREE.SpotLight(0xEEEEEE);
 
     spotLight.castShadow = true;
@@ -234,7 +243,8 @@
 
     scene.add(spotLight);
 
-    // create a point light
+
+    // create a point light 
     var spotLight2 = new THREE.SpotLight(0x555555);
 
     spotLight2.shadowCameraNear = 600;
@@ -253,7 +263,6 @@
     spotLight2.position.z = 1;
 
     scene.add(spotLight2);
-
 
 
     sphereLights = [];
