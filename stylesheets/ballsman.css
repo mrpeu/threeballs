@@ -5,19 +5,25 @@ html {
 }
 
 #header {
-    color: #AAAAAA;
+    opacity: .7;
+    color: #1a1a1a;
     font-size: 18px;
     font-weight: bold;
     font-family: Tahoma;
-
-    margin: 16px 16px 32px 16px;
+    
+    margin: 8px 8px 16px 8px;
 }
 
 #header>#title {
-    padding: 4px;
+    padding: 16px;
 }
 
-#stats {
+#header>#stats {
+    float: left;
+    margin-right: 16px;
+}
+
+#header>.dg.main {
     float: right;
 }
 
