@@ -17,25 +17,28 @@ $(function () {
         var w = container.innerWidth(),
             h = w * (9 / 16);
 
-        camera = new THREE.PerspectiveCamera( 60, w / h, 1, 1500 );
+        camera = new THREE.PerspectiveCamera(60, w / h, 1, 1500);
+        camera.position.y = 150;
         camera.position.z = 250;
 
         scene = new THREE.Scene();
 
         _terrain = createTerrain(scene);
 
-        renderer = new THREE.WebGLRenderer();
-        renderer.setSize( w, h );
+        /* RENDERER */
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(w, h);
         renderer.sortObjects = false;
-        container.append( renderer.domElement );
+        container.append(renderer.domElement);
 
+        /* STATS */
         stats = new Stats();
         container.before(stats.domElement);
-
-        /* CONTROLS */        
+        /* CONTROLS */
         controls = new THREE.TrackballControls(camera, container[0]);
 
-        window.addEventListener( 'resize', onWindowResize, false );
+        window.addEventListener('resize', onWindowResize, false);
+        //container.on( 'mousemove', onMouseMove, false );
 
     }
 
@@ -43,64 +46,68 @@ $(function () {
     /*********
      * Terrain generation
      *********/
-    function createTerrain(scene){
-        var terrainCfg = {
-                size: {x: 250, y: 250, z: 100},
-                res: {x: 25, y: 25, z: 50} // resolution
-            },
+    function createTerrain(scene) {
+        var size=400, resolution=10,
+            terrainCfg = {
+                size: { x: size, y: size, z: 100 },
+                res: { x: resolution, y: resolution, z: 50 } // resolution
+        },
 
             materials = [
-                new THREE.MeshNormalMaterial({wireframe: true}),
-                new THREE.MeshNormalMaterial()
+                new THREE.MeshNormalMaterial({ wireframe: true }),
+                new THREE.MeshNormalMaterial(),
+                new THREE.MeshPhongMaterial()
             ],
 
-            plane = new THREE.Mesh( 
-                new THREE.PlaneGeometry(
-                    // size
-                    terrainCfg.size.x,terrainCfg.size.y,
-                    // nb segments
-                    terrainCfg.res.x, terrainCfg.res.y
-                ),
-                materials[0] 
-            )
+            planeGeom = new THREE.PlaneGeometry(
+                // size
+                terrainCfg.size.x, terrainCfg.size.y,
+                // nb segments
+                terrainCfg.res.x-1, terrainCfg.res.y-1
+            ),
+            data = generateHeight(terrainCfg.res.x, terrainCfg.res.y)
         ;
 
-        scene.add(plane);
+        planeGeom.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
 
-        var terrain = [],
-            bric,
-            _w = terrainCfg.res.x,
-            _h = terrainCfg.res.y
+        for (var i = 0, l = planeGeom.vertices.length; i < l; i++) {
+
+            planeGeom.vertices[i].y = data[i] * 1;
+
+        }
+
+        _planeMesh = new THREE.Mesh(planeGeom, materials[0]);
+
+        scene.add(_planeMesh);
+
+
+        scene.add(new THREE.Mesh(new THREE.IcosahedronGeometry(), materials[1]));
+
+
+        
+        var brics = [],
+            bricGeom, bric,
+            _w = terrainCfg.res.x-1,
+            _h = terrainCfg.res.y-1,
+            face
         ;
-        for (var j = _w-1; j >= 0; j--) {
-            for (var i = _h-1; i >= 0; i--) {
+        bricGeom = new THREE.CubeGeometry(30, 30, 30);
+        for (var j = _w; j > 0; j--) {
+            for (var i = _h; i > 0; i--) {
 
-                var vertices = [
-                    plane.geometry.vertices[(j*(_w+1))+i+0],
-                    plane.geometry.vertices[(j*(_w+1))+i+1],
-                    plane.geometry.vertices[(j*(_w+1))+i+(_w+2)],
-                    plane.geometry.vertices[(j*(_w+1))+i+(_w+1)]
-                ];
+                face = planeGeom.faces[(j * _w) - i];
+                console.log(face);
+                bric = new THREE.Mesh(bricGeom.clone(), materials[1]);
 
-                var extrusion = (
-                    new THREE.Shape(vertices)
-                ).extrude({
-                    amount: Math.random() * terrainCfg.res.z,
-                    bevelEnabled: true,
-                    bevelThickness: .1,
-                    bevelSize: .1,
-                    bevelSegments: 1
-                });
+                bric.position = face.centroid.clone();
 
-                bric = new THREE.Mesh( extrusion, materials[1] );
-
-                terrain.push(bric);
+                brics.push(bric);
 
                 scene.add( bric );
             };
         };
-
-        return terrain;
+        
+        return brics;
     }
 
 
@@ -113,14 +120,20 @@ $(function () {
         camera.aspect = w / h;
         camera.animateProjectionMatrix();
 
-        renderer.setSize( w, h );
-
+        renderer.setSize(w, h);
+        animate();
     }
 
-    //
+    function onMouseMove() {
+        animate();
+    }
+
+    window._timeThatsEnough = Date.now + 10 * 1000;
 
     function animate() {
-        requestAnimationFrame( animate );
+        if (Date.now > window._timeThatsEnough) return;
+
+        requestAnimationFrame(animate);
 
         /*
         var time = Date.now() * 0.001;
@@ -141,10 +154,39 @@ $(function () {
         } );
         */
 
-        renderer.render( scene, camera );
-        
+        renderer.render(scene, camera);
+
         controls.update();
         stats.update();
+    }
+
+    function generateHeight(width, height) {
+
+        var size = width * height, data = new Float32Array(size),
+        perlin = new ImprovedNoise(), quality = 1, z = Math.random() * 100;
+
+        for (var i = 0; i < size; i++) {
+
+            data[i] = 0
+
+        }
+
+        for (var j = 0; j < 4; j++) {
+
+            for (var i = 0; i < size; i++) {
+
+                var x = i % width, y = ~~(i / width);
+                data[i] += Math.abs(perlin.noise(x / quality, y / quality, z) * quality * 1.75);
+
+
+            }
+
+            quality *= 5;
+
+        }
+
+        return data;
+
     }
 
 });
