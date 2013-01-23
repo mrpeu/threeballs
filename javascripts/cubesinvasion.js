@@ -1,72 +1,150 @@
 
 $(function () {
 
-    var camera, scene, renderer, geometry, material, mesh;
+    var camera, scene, renderer, stats,
+
+    geometry, root,
+
+    mouseX = 0, mouseY = 0;
 
     init();
     animate();
 
     function init() {
 
-        var $container = $('#container');
-        var w = $container.innerWidth(),
+        container = $('#container');
+
+        var w = container.innerWidth(),
             h = w * (9 / 16);
 
-        /* SCENE */
+        camera = new THREE.PerspectiveCamera( 60, w / h, 1, 1500 );
+        camera.position.z = 250;
+
         scene = new THREE.Scene();
 
-        /* CAMERA */
-        camera = new THREE.PerspectiveCamera(50, w / h, 1, 1000);
-        camera.position.z = 750;
-        scene.add(camera);
+        _terrain = createTerrain(scene);
 
-        /* MATERIAL */
-        material = new THREE.MeshNormalMaterial();
+        renderer = new THREE.WebGLRenderer();
+        renderer.setSize( w, h );
+        renderer.sortObjects = false;
+        container.append( renderer.domElement );
 
-        /* MODEL */
-        geometry = new THREE.CubeGeometry(25, 25, 25);
-        mesh = new THREE.Mesh(geometry, material);
-    	
-        var nb = 10, x=0;
-        for(var i=0; i<nb; i++){
-            mesh = mesh.clone();
-            x = Math.cos(360/i)*360;
-            mesh.position.x = x;
-        	scene.add(mesh);
-        }
-
-        /* RENDERER */
-        renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(w, h);
-
-        $container.append(renderer.domElement);
-
-        /* STATS */
         stats = new Stats();
-        $container.before(stats.domElement);
-
+        container.before(stats.domElement);
 
         /* CONTROLS */        
-        controls = new THREE.TrackballControls(camera, $container[0]);
-        controls.target.set(0, 0, 0);
-        controls.enabled = true;
+        controls = new THREE.TrackballControls(camera, container[0]);
+
+        window.addEventListener( 'resize', onWindowResize, false );
+
     }
-    
+
+
+    /*********
+     * Terrain generation
+     *********/
+    function createTerrain(scene){
+        var terrainCfg = {
+                size: {x: 250, y: 250, z: 100},
+                res: {x: 25, y: 25, z: 50} // resolution
+            },
+
+            materials = [
+                new THREE.MeshNormalMaterial({wireframe: true}),
+                new THREE.MeshNormalMaterial()
+            ],
+
+            plane = new THREE.Mesh( 
+                new THREE.PlaneGeometry(
+                    // size
+                    terrainCfg.size.x,terrainCfg.size.y,
+                    // nb segments
+                    terrainCfg.res.x, terrainCfg.res.y
+                ),
+                materials[0] 
+            )
+        ;
+
+        scene.add(plane);
+
+        var terrain = [],
+            bric,
+            _w = terrainCfg.res.x,
+            _h = terrainCfg.res.y
+        ;
+        for (var j = _w-1; j >= 0; j--) {
+            for (var i = _h-1; i >= 0; i--) {
+
+                var vertices = [
+                    plane.geometry.vertices[(j*(_w+1))+i+0],
+                    plane.geometry.vertices[(j*(_w+1))+i+1],
+                    plane.geometry.vertices[(j*(_w+1))+i+(_w+2)],
+                    plane.geometry.vertices[(j*(_w+1))+i+(_w+1)]
+                ];
+
+                var extrusion = (
+                    new THREE.Shape(vertices)
+                ).extrude({
+                    amount: Math.random() * terrainCfg.res.z,
+                    bevelEnabled: true,
+                    bevelThickness: .1,
+                    bevelSize: .1,
+                    bevelSegments: 1
+                });
+
+                bric = new THREE.Mesh( extrusion, materials[1] );
+
+                terrain.push(bric);
+
+                scene.add( bric );
+            };
+        };
+
+        return terrain;
+    }
+
+
+
+    function onWindowResize() {
+
+        var w = container.innerWidth(),
+            h = w * (9 / 16);
+
+        camera.aspect = w / h;
+        camera.animateProjectionMatrix();
+
+        renderer.setSize( w, h );
+
+    }
+
+    //
 
     function animate() {
+        requestAnimationFrame( animate );
 
-        requestAnimationFrame(animate);
-        render();
+        /*
+        var time = Date.now() * 0.001;
 
-    }
+        var rx = Math.sin( time * 0.7 ) * 0.2;
+        var ry = Math.sin( time * 0.3 ) * 0.1;
+        var rz = Math.sin( time * 0.2 ) * 0.1;
 
-    function render() {
+        camera.lookAt( scene.position );
 
-        mesh.rotation.x += 0.01;
-        mesh.rotation.y += 0.02;
+        root.traverse( function ( object ) {
 
-        renderer.render(scene, camera);
+            if(object==root) return;
+            object.rotation.x = rx;
+            object.rotation.y = ry;
+            object.rotation.z = rz;
 
+        } );
+        */
+
+        renderer.render( scene, camera );
+        
+        controls.update();
+        stats.update();
     }
 
 });
