@@ -1,42 +1,41 @@
 
 html {
-    background-color: #000;
+	background-color: #000;
 
-    color: #BBBBBB;
+	color: #BBBBBB;
 }
 
 body {
-    background:#fff;
-    padding-bottom: 32px;
-    margin: 0px 0px 8px 0px;
-    font-weight: bold;
+	background:#fff;
+	padding-bottom: 32px;
+	margin: 0px 0px 8px 0px;
+	font-weight: bold;
 }
 
 #header {
 	opacity: 0.8;
-    color: #555555;
-    background-color: #FFFFFF;
+	color: #555555;
+	background-color: #FFFFFF;
 
-    text-align: center;
-    font-size: 18px;
-    font-weight: bold;
-    font-family: Tahoma;
+	text-align: center;
+	font-size: 18px;
+	font-weight: bold;
+	font-family: Tahoma;
 
-    margin: 16px 8px 8px 8px;
-    padding: 8px 8px 8px 8px;
+	margin: 16px 8px 8px 8px;
+	padding: 8px 8px 8px 8px;
 }
 
 #stats {
-    opacity: 0.8;
+	opacity: 0.8;
 	float: left;
 	margin-left: 16px;
 }
 
 #container {
-	width: 960px;
-	height: 540px;
-    margin: 0 auto;
-    margin-bottom: 16px;
-    box-shadow: 0 0 8px #BBBBBB;
+	width: 80%;
+	margin: 0 auto;
+	margin-bottom: 16px;
+	box-shadow: 0 0 8px #BBBBBB;
 }
 
