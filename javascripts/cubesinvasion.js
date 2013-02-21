@@ -2,7 +2,7 @@
 var camera, cameraTarget, scene, renderer, gui, controls={};
 var loopMove = false, loopRender = true;
 
-var material0, material1,
+var material0, material1, material2,
     force = [2.5,2,2,1.5,2.5,3],
     array = [],
     ball;
@@ -42,6 +42,11 @@ function initScene() {
         transparent: false
     } );
 
+    material2 = new THREE.ShaderMaterial({
+        vertexShader:   $('#vertexshader').text(),
+        fragmentShader: $('#fragmentshader').text()
+    });
+
 
     var radius = 70;
     var nbSegX = 41,
@@ -76,11 +81,14 @@ function initScene() {
 
         mesh = new THREE.Mesh(
             createCube(w, h, 10 + 5 * Math.random()*0.005),
-            material0.clone()
+            i%3==0 ? material2.clone() : material0.clone()
         );
 
         //mesh.material.color.setHSV(i/(max-min), 0.5, 0.7);
-        mesh.material.color.setHex(Math.random() * 0x008800 + 0x008800)
+        if(mesh.material instanceof THREE.ShaderMaterial){}else{
+            mesh.material.color.setHex(Math.random() * 0x008800 + 0x008800)
+        }
+
         mesh.position = f.centroid;
 
         // add some noise
