@@ -1,5 +1,6 @@
 
-var camera, cameraTarget, scene, renderer, gui, autoMove, autoRender=true;
+var camera, cameraTarget, scene, renderer, gui, controls={};
+var loopMove = false, loopRender = true;
 
 var material0, material1,
     force = [2.5,2,2,1.5,2.5,3],
@@ -16,7 +17,7 @@ function initScene() {
 
     var aspect = window.innerWidth / window.innerHeight;
 
-    camera = new THREE.PerspectiveCamera( 65, aspect, 1, 10000 );
+    camera = new THREE.PerspectiveCamera( 70, aspect, 1, 10000 );
 
     camera.position.set(0, 50, 130);
 
@@ -26,15 +27,12 @@ function initScene() {
     scene.add( camera );
 
 
-    var cubeSide = 5;
-    var cubeGeometry = new THREE.CubeGeometry( cubeSide, cubeSide, cubeSide );
-
     //material0 = new THREE.MeshBasicMaterial( {vertexColors: THREE.VertexColors} );
     material0 = new THREE.MeshLambertMaterial({
-        color: 0xff8800,
+        color: 0xffffff,
         transparent: false,
         specular: 0xffffff,
-        shininess: 100
+        shininess: 200
     });
 
     material1 = new THREE.MeshBasicMaterial( {
@@ -47,58 +45,82 @@ function initScene() {
 
     var radius = 70;
     var nbSegX = 41,
-        nbSegY = 20;
+        nbSegY = 21;
 
-    // container
-    ball = new THREE.Mesh(
+    // create the blue print
+    ball = THREE.SceneUtils.createMultiMaterialObject(
         new THREE.SphereGeometry( radius, nbSegX, nbSegY ),
-        material1
+        [material1, new THREE.MeshBasicMaterial({ color: 0x3F748C })]
     );
     scene.add(ball);
 
-    var vs = ball.geometry.vertices, v,
-        nbVertices = vs.length,
-        nbRowsToSkip = 5,
-        min = Math.round((nbSegX+1) * nbRowsToSkip),//Math.round(nbSegY *.1)*nbSegX,
-        max = nbVertices - min,
+    // create the play board out of it
+    var vs = ball.children[0].geometry.vertices,
+        fs = ball.children[0].geometry.faces, f,
+        nbFaces = fs.length,
+        nbRowsToSkip = 3,
+        min = Math.round((nbSegX) * nbRowsToSkip),
+        max = nbFaces - min,
         coverage = max-min,
         circumference = 2*Math.PI * radius,
         mesh
     ;
 
-    for( var iv = max-1; iv > min; iv-- ){
-        v = vs[iv];
+    blocks = [];
+
+    for( var i = max-1; i > min; i-- ){
+        f = fs[i];
         
+        var w = ((vs[f.a].distanceTo(vs[f.b]))+(vs[f.c].distanceTo(vs[f.d])))/2,
+            h = ((vs[f.a].distanceTo(vs[f.d]))+(vs[f.b].distanceTo(vs[f.c])))/2
+
         mesh = new THREE.Mesh(
-            cubeGeometry.clone(),
+            createCube(w, h, 10 + 5 * Math.random()*0.005),
             material0.clone()
         );
 
-        mesh.material.color.setHSV(iv/(max-min), 0.5, 0.7);
-        mesh.position.set( v.x, v.y, v.z);
+        //mesh.material.color.setHSV(i/(max-min), 0.5, 0.7);
+        mesh.material.color.setHex(Math.random() * 0x008800 + 0x008800)
+        mesh.position = f.centroid;
 
-        var msg = "",
-            nb = Math.sin( (iv/(nbSegX)) * (Math.PI/nbSegY) )
-        ;
-        /*
-        for(var i=nb*10;i>0;i--)
-            msg+='.';
-        console.log(msg, nb);
-        */
-        mesh.scale.set(
-            circumference/coverage * Math.sin( (iv/(nbSegX)) * (Math.PI/nbSegY) ) * 2,
-            circumference/coverage * Math.cos( (iv/(nbSegX)) * (Math.PI/nbSegX) ) * 2,
-            1
+        // add some noise
+        ['a','b', 'c', 'd'].map(
+            function(letter){
+                this.dimensions.map(
+                    function(dimension){
+                        this.vs[this.mf[letter]][dimension] -= -Math.random()*1.25;
+                    },
+                    this
+                );
+            },
+            {mf: mesh.geometry.faces[4], vs: mesh.geometry.vertices, dimensions: ['x','y','z']}
         );
 
         mesh.lookAt(scene.position);
 
         ball.add( mesh );
-    }
+        //THREE.GeometryUtils.merge(ball.geometry, mesh);
 
-    light = new THREE.DirectionalLight( 0xffffff );
-    light.position.set( 0, 0, 1 );
-    scene.add( light );
+        blocks.push({mesh:mesh});
+    }
+    /*
+    blocks.map(function(o,i,a){
+        var row=10;
+        if(o.mesh.id>=41*row++&&o.mesh.id<41*row){
+            var m = o.mesh.material;
+                c = m.color.getHSV();
+            o.mesh.material.color.setHSV(0.05,c.s,c.v);
+        }
+    })
+    */
+
+    light0 = new THREE.DirectionalLight( 0xffffff );
+    light0.position.set( -200, 0, 200 );
+    scene.add( light0 );
+
+    light1 = new THREE.DirectionalLight( 0xffffff );
+    light1.position.set( 200, 0, 200 );
+    scene.add( light1 );
 
     try {
         // renderer
@@ -110,49 +132,190 @@ function initScene() {
         has_gl = true;
 
         window.addEventListener('resize', onWindowResize, false);
-
-        render();
     }
     catch (e) {
         // need webgl
         alert("WebGL is needed!");
         return;
     }
+}
 
+function createCube(width, height, depth){
+    var geo, widthSegments, heightSegments, depthSegments;
+
+    geo = new THREE.Geometry();
+
+    var scope = geo;
+
+    geo.width = width || 1;
+    geo.height = height || 1;
+    geo.depth = depth || 1;
+
+    geo.widthSegments = widthSegments || 1;
+    geo.heightSegments = heightSegments || 1;
+    geo.depthSegments = depthSegments || 1;
+
+    var width_half = geo.width / 2;
+    var height_half = geo.height / 2;
+    var depth_half = geo.depth / 2;
+
+    buildPlane( 'z', 'y', - 1, - 1, geo.depth, geo.height, width_half, 0 ); // px   RIGHT
+    buildPlane( 'z', 'y',   1, - 1, geo.depth, geo.height, - width_half, 1 ); //nx  LEFT
+    buildPlane( 'x', 'z',   1,   1, geo.width, geo.depth, height_half, 2 ); //py    TOP
+    buildPlane( 'x', 'z',   1, - 1, geo.width, geo.depth, - height_half, 3 ); //ny  BOTTOM
+    //buildPlane( 'x', 'y',   1, - 1, geo.width, geo.height, depth_half, 4 ); //pz  FRONT
+    buildPlane( 'x', 'y', - 1, - 1, geo.width, geo.height, - depth_half, 5 ); //nz  BACK
+
+    THREE.Geometry.prototype.computeCentroids.call(geo);
+    THREE.Geometry.prototype.mergeVertices.call(geo);
+
+
+    function buildPlane( u, v, udir, vdir, width, height, depth, materialIndex ) {
+
+        var w, ix, iy,
+        gridX = scope.widthSegments,
+        gridY = scope.heightSegments,
+        width_half = width / 2,
+        height_half = height / 2,
+        offset = scope.vertices.length;
+
+        if ( ( u === 'x' && v === 'y' ) || ( u === 'y' && v === 'x' ) ) {
+
+            w = 'z';
+
+        } else if ( ( u === 'x' && v === 'z' ) || ( u === 'z' && v === 'x' ) ) {
+
+            w = 'y';
+            gridY = scope.depthSegments;
+
+        } else if ( ( u === 'z' && v === 'y' ) || ( u === 'y' && v === 'z' ) ) {
+
+            w = 'x';
+            gridX = scope.depthSegments;
+
+        }
+
+        var gridX1 = gridX + 1,
+        gridY1 = gridY + 1,
+        segment_width = width / gridX,
+        segment_height = height / gridY,
+        normal = new THREE.Vector3();
+
+        normal[ w ] = depth > 0 ? 1 : - 1;
+
+        for ( iy = 0; iy < gridY1; iy ++ ) {
+
+            for ( ix = 0; ix < gridX1; ix ++ ) {
+
+                var vector = new THREE.Vector3();
+                vector[ u ] = ( ix * segment_width - width_half ) * udir;
+                vector[ v ] = ( iy * segment_height - height_half ) * vdir;
+                vector[ w ] = depth;
+
+                scope.vertices.push( vector );
+
+            }
+
+        }
+
+        for ( iy = 0; iy < gridY; iy++ ) {
+
+            for ( ix = 0; ix < gridX; ix++ ) {
+
+                var a = ix + gridX1 * iy;
+                var b = ix + gridX1 * ( iy + 1 );
+                var c = ( ix + 1 ) + gridX1 * ( iy + 1 );
+                var d = ( ix + 1 ) + gridX1 * iy;
+
+                var plane = new THREE.Face4( a + offset, b + offset, c + offset, d + offset );
+                plane.normal.copy( normal );
+                plane.vertexNormals.push( normal.clone(), normal.clone(), normal.clone(), normal.clone() );
+                plane.materialIndex = materialIndex;
+
+                scope.faces.push( plane );
+                scope.faceVertexUvs[ 0 ].push( [
+                            new THREE.Vector2( ix / gridX, 1 - iy / gridY ),
+                            new THREE.Vector2( ix / gridX, 1 - ( iy + 1 ) / gridY ),
+                            new THREE.Vector2( ( ix + 1 ) / gridX, 1- ( iy + 1 ) / gridY ),
+                            new THREE.Vector2( ( ix + 1 ) / gridX, 1 - iy / gridY )
+                        ] );
+
+            }
+
+        }
+
+    }
+
+    return geo;
 }
 
 
 function initGui() {
 
-    gui = new xgui({backgroundColor: "#fed980", frontColor: "#bb6900"});
+    gui = new xgui({ width: 200, height: 400 });
 
     document.getElementById("gui").appendChild(gui.getDomElement());
 
     var nbRow = 0, hRow = 15;
 
-    new gui.Label( {x: 100, y: nbRow*hRow, text: "Camera"} );
-    var range = 500;
+    nbRow++;
+    new gui.Label( { x: 20, y: nbRow*hRow, text: "move" } );
+    new gui.CheckBox( { x: 75, y: nbRow*hRow, value: loopMove } )
+        .value.bind(window, "loopMove");
 
-    new gui.Label( {x: 20, y: (++nbRow+1)*hRow, text: "X & Y"});
+    nbRow++;
+    new gui.Label( { x: 20, y: nbRow*hRow, text: "render" } );
+    new gui.CheckBox( { x: 75, y: nbRow*hRow, value: loopRender } )
+        .value.bind(window, "loopRender");
+
+    nbRow++;
+    new gui.Label( { x: 20, y: nbRow*hRow, text: "controls" } );
+    new gui.CheckBox( { x: 75, y: nbRow*hRow, value: controls.enabled } )
+        .value.bind(controls, "enabled");
+
+    nbRow++;
+    new gui.Label( {x: 20, y: (++nbRow+1)*hRow, text: "camera"});
     var camTrackPad =new gui.TrackPad( {x: 75, y: nbRow*hRow, min: -100, max: 100, value1: camera.position.x, value2: camera.position.y } );
     camTrackPad.value1.bind(camera.position, "x")
     camTrackPad.value2.bind(camera.position, "y");
     nbRow += 5;
 
-    new gui.Label( { x: 20, y: nbRow*hRow, text: "Z"});
-    new gui.HSlider( { x: 75, y: nbRow*hRow, value: camera.position.z, min: -range/2, max:range/2 } )
+    new gui.Label( { x: 20, y: nbRow*hRow, text: "z:"});
+    new gui.HSlider( { x: 75, y: nbRow*hRow, value: camera.position.z, min: -200, max:200 } )
         .value.bind(camera.position, "z");
 
     nbRow++;
-    nbRow++;
-    new gui.Label( { x: 20, y: nbRow*hRow, text: "move" } );
-    new gui.CheckBox( { x: 75, y: nbRow*hRow, value: autoMove } )
-        .value.bind(window, "autoMove");
+    new gui.Label( {x: 20, y: (++nbRow+1)*hRow, text: "light0"});
+    var ligTrackPad =new gui.TrackPad( {x: 75, y: nbRow*hRow, min: -200, max: 200, value1: light0.position.x, value2: light0.position.y } );
+    ligTrackPad.value1.bind(light0.position, "x")
+    ligTrackPad.value2.bind(light0.position, "y");
+    nbRow += 5;
+
+    new gui.Label( { x: 20, y: nbRow*hRow, text: "z:"});
+    new gui.HSlider( { x: 75, y: nbRow*hRow, value: light0.position.z, min: -200, max:200 } )
+        .value.bind(light0.position, "z");
 
     nbRow++;
-    new gui.Label( { x: 20, y: nbRow*hRow, text: "render" } );
-    new gui.CheckBox( { x: 75, y: nbRow*hRow, value: autoRender } )
-        .value.bind(window, "autoRender");
+    new gui.Label( {x: 20, y: (++nbRow+1)*hRow, text: "light1"});
+    var ligTrackPad =new gui.TrackPad( {x: 75, y: nbRow*hRow, min: -200, max: 200, value1: light1.position.x, value2: light1.position.y } );
+    ligTrackPad.value1.bind(light1.position, "x")
+    ligTrackPad.value2.bind(light1.position, "y");
+    nbRow += 5;
+
+    new gui.Label( { x: 20, y: nbRow*hRow, text: "z:"});
+    new gui.HSlider( { x: 75, y: nbRow*hRow, value: light1.position.z, min: -200, max:200 } )
+        .value.bind(light1.position, "z");
+}
+
+function initControls() {
+
+    controls = new THREE.TrackballControls(camera, container);
+    controls.target.set(0, 0, 0);
+
+    controls.noZoom = true;
+    controls.noPan = true;
+
+    controls.keys = [65, 83, 68];
 }
 
 
@@ -167,7 +330,7 @@ function onWindowResize() {
 
 var time, delta, oldTime;
 
-function render() {
+function loop() {
 
     time = new Date().getTime();
     delta = time - oldTime;
@@ -177,12 +340,19 @@ function render() {
         delta = 1000/60;
     }
 
-        if(autoMove){
-            ball.rotation.y += delta/1000;
-            ball.rotation.x += delta/2000;
-        }
+    TWEEN.update();
 
-    if(autoRender){
+    controls.update();
+
+    if( loopMove ){
+
+        var k = 4000;
+        ball.rotation.y += delta/k;
+        ball.rotation.x += delta/(2*k);
+
+    }
+
+    if( loopRender ){
 
         camera.lookAt( cameraTarget );
 
@@ -191,7 +361,7 @@ function render() {
         }
     }
 
-    requestAnimationFrame( render );
+    requestAnimationFrame( loop );
 }
 
     
@@ -200,6 +370,39 @@ $(function () {
 
     initScene();
 
+    if(typeof renderer == "undefined")
+        alert("No renderer ready");
+
     initGui();
+
+    initControls();
+
+    loop();
+
+
+    /*
+    // Test Tween
+    window.addEventListener( 'keyup', function(event){
+
+        if(event.keyCode == 65){
+
+            blocks.map(function(o,i,a){ if(Math.random()>0.3){
+
+                var m = o.mesh.material;
+                    c = m.color.getHSV();
+
+                new TWEEN.Tween({ color: m.color, h: 50, s: Math.random()*100, v: c.v })
+                    .to({ h:c.h*100, s:c.s*100, c:c.v }, 2000)
+                    .easing( TWEEN.Easing.Quartic.Out )
+                    .onUpdate( function(){
+                        this.color.setHSV(this.h/100, this.s/100, this.v);
+                    })
+                    .start();
+            }});
+
+        }
+
+    }, false );
+    */
 
 });
