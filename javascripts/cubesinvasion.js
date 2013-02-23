@@ -26,7 +26,7 @@ function initScene() {
     camera.lookAt( cameraTarget );
     scene.add( camera );
 
-
+    // Wireframe
     material0 = new THREE.MeshBasicMaterial( {
         color: 0x33b5e5,
         wireframe: true,
@@ -34,49 +34,37 @@ function initScene() {
         transparent: false
     } );
 
+    // Lambert
     material1 = new THREE.MeshLambertMaterial({
         color: 0xffffff,
-        transparent: false,
         specular: 0xffffff,
-        shininess: 200
+        shininess: 200,
+        vertexColors: THREE.FaceColors
     });
 
-    var materials = (function(){
-        var a=[];
-        for (var i=0; i<6; i++) {
-          var img = new Image();
-          img.src = 'images/' + i + '.png';
-          var tex = new THREE.Texture(img);
-          img.tex = tex;
+    // Basic
+    material2 = new THREE.MeshBasicMaterial( {
+        color: 0xffffff,
+        vertexColors: THREE.FaceColors
+    } );
 
-          img.onload = function() {
-              this.tex.needsUpdate = true;
-          };
-
-          var mat = new THREE.MeshBasicMaterial({color: 0xffffff, map: tex});
-          a.push(mat);
-        }
-        return a;
-    })();
-    material2 = new THREE.MeshFaceMaterial( materials );
-
+    // from GLSL
     material3 = new THREE.ShaderMaterial({
         vertexShader:   $('#vertexshader').text(),
         fragmentShader: $('#fragmentshader').text()
     });
 
 
-    var radius = 70;
-    var nbSegX = 41,
-        nbSegY = 21;
+    var radius = 70,
+        nbSegX = 40,
+        nbSegY = 20,
+        nbRowsToSkip = 3
+    ;
 
     // create the blue print
     ball = new THREE.Mesh(
         new THREE.SphereGeometry( radius, nbSegX, nbSegY ),
-        new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-            vertexColors: THREE.FaceColors
-        })
+        material1.clone()
     );
     ball.dynamic = true;
     scene.add(ball);
@@ -86,7 +74,6 @@ function initScene() {
     var vs = ball.geometry.vertices,
         fs = ball.geometry.faces, f,
         nbFaces = fs.length,
-        nbRowsToSkip = 3,
         min = Math.round((nbSegX) * nbRowsToSkip),
         max = nbFaces - min,
         coverage = max-min,
@@ -96,7 +83,7 @@ function initScene() {
 
     blocks = [];
 
-    for( var i = max-1; i > min; i-- ){
+    for( var i = max-1; i >= min; i-- ){
         f = fs[i];
         
         var w = ((vs[f.a].distanceTo(vs[f.b]))+(vs[f.c].distanceTo(vs[f.d])))/2,
@@ -104,7 +91,7 @@ function initScene() {
 
         mesh = new THREE.Mesh(
             createCube(w, h, 10 + 5 * Math.random()*0.005),
-            ball.material.clone()
+            ball.material
         );
         mesh.dynamic = true;
         mesh.position = f.centroid;
@@ -170,126 +157,133 @@ function initScene() {
         has_gl = true;
 
         window.addEventListener('resize', onWindowResize, false);
+
+        initPlayers();
     }
     catch (e) {
         // need webgl
         alert("WebGL is needed!");
         return;
     }
+
+    function createCube(width, height, depth){
+        var geo, widthSegments, heightSegments, depthSegments;
+
+        geo = new THREE.Geometry({dynamic: true});
+
+        var scope = geo;
+
+        geo.width = width || 1;
+        geo.height = height || 1;
+        geo.depth = depth || 1;
+
+        geo.widthSegments = widthSegments || 1;
+        geo.heightSegments = heightSegments || 1;
+        geo.depthSegments = depthSegments || 1;
+
+        var width_half = geo.width / 2;
+        var height_half = geo.height / 2;
+        var depth_half = geo.depth / 2;
+
+        buildPlane( 'z', 'y', - 1, - 1, geo.depth, geo.height, width_half, 1 ); // px   RIGHT
+        buildPlane( 'z', 'y',   1, - 1, geo.depth, geo.height, - width_half, 1 ); //nx  LEFT
+        buildPlane( 'x', 'z',   1,   1, geo.width, geo.depth, height_half, 1 ); //py    TOP
+        buildPlane( 'x', 'z',   1, - 1, geo.width, geo.depth, - height_half, 1 ); //ny  BOTTOM
+        //buildPlane( 'x', 'y',   1, - 1, geo.width, geo.height, depth_half, 1 ); //pz  FRONT
+        buildPlane( 'x', 'y', - 1, - 1, geo.width, geo.height, - depth_half, 1 ); //nz  BACK
+
+        THREE.Geometry.prototype.computeCentroids.call(geo);
+        THREE.Geometry.prototype.mergeVertices.call(geo);
+
+
+        function buildPlane( u, v, udir, vdir, width, height, depth, materialIndex ) {
+
+            var w, ix, iy,
+            gridX = scope.widthSegments,
+            gridY = scope.heightSegments,
+            width_half = width / 2,
+            height_half = height / 2,
+            offset = scope.vertices.length;
+
+            if ( ( u === 'x' && v === 'y' ) || ( u === 'y' && v === 'x' ) ) {
+
+                w = 'z';
+
+            } else if ( ( u === 'x' && v === 'z' ) || ( u === 'z' && v === 'x' ) ) {
+
+                w = 'y';
+                gridY = scope.depthSegments;
+
+            } else if ( ( u === 'z' && v === 'y' ) || ( u === 'y' && v === 'z' ) ) {
+
+                w = 'x';
+                gridX = scope.depthSegments;
+
+            }
+
+            var gridX1 = gridX + 1,
+            gridY1 = gridY + 1,
+            segment_width = width / gridX,
+            segment_height = height / gridY,
+            normal = new THREE.Vector3();
+
+            normal[ w ] = depth > 0 ? 1 : - 1;
+
+            for ( iy = 0; iy < gridY1; iy ++ ) {
+
+                for ( ix = 0; ix < gridX1; ix ++ ) {
+
+                    var vector = new THREE.Vector3();
+                    vector[ u ] = ( ix * segment_width - width_half ) * udir;
+                    vector[ v ] = ( iy * segment_height - height_half ) * vdir;
+                    vector[ w ] = depth;
+
+                    scope.vertices.push( vector );
+
+                }
+
+            }
+
+            for ( iy = 0; iy < gridY; iy++ ) {
+
+                for ( ix = 0; ix < gridX; ix++ ) {
+
+                    var a = ix + gridX1 * iy;
+                    var b = ix + gridX1 * ( iy + 1 );
+                    var c = ( ix + 1 ) + gridX1 * ( iy + 1 );
+                    var d = ( ix + 1 ) + gridX1 * iy;
+
+                    var plane = new THREE.Face4( a + offset, b + offset, c + offset, d + offset );
+                    plane.normal.copy( normal );
+                    plane.vertexNormals.push( normal.clone(), normal.clone(), normal.clone(), normal.clone() );
+                    plane.materialIndex = materialIndex;
+
+                    scope.faces.push( plane );
+                    scope.faceVertexUvs[ 0 ].push( [
+                                new THREE.Vector2( ix / gridX, 1 - iy / gridY ),
+                                new THREE.Vector2( ix / gridX, 1 - ( iy + 1 ) / gridY ),
+                                new THREE.Vector2( ( ix + 1 ) / gridX, 1- ( iy + 1 ) / gridY ),
+                                new THREE.Vector2( ( ix + 1 ) / gridX, 1 - iy / gridY )
+                            ] );
+
+                }
+
+            }
+
+        }
+
+        return geo;
+    }
 }
 
-function createCube(width, height, depth){
-    var geo, widthSegments, heightSegments, depthSegments;
+function initPlayers(){
 
-    geo = new THREE.Geometry({dynamic: true});
-
-    var scope = geo;
-
-    geo.width = width || 1;
-    geo.height = height || 1;
-    geo.depth = depth || 1;
-
-    geo.widthSegments = widthSegments || 1;
-    geo.heightSegments = heightSegments || 1;
-    geo.depthSegments = depthSegments || 1;
-
-    var width_half = geo.width / 2;
-    var height_half = geo.height / 2;
-    var depth_half = geo.depth / 2;
-
-    buildPlane( 'z', 'y', - 1, - 1, geo.depth, geo.height, width_half, 1 ); // px   RIGHT
-    buildPlane( 'z', 'y',   1, - 1, geo.depth, geo.height, - width_half, 1 ); //nx  LEFT
-    buildPlane( 'x', 'z',   1,   1, geo.width, geo.depth, height_half, 1 ); //py    TOP
-    buildPlane( 'x', 'z',   1, - 1, geo.width, geo.depth, - height_half, 1 ); //ny  BOTTOM
-    //buildPlane( 'x', 'y',   1, - 1, geo.width, geo.height, depth_half, 1 ); //pz  FRONT
-    buildPlane( 'x', 'y', - 1, - 1, geo.width, geo.height, - depth_half, 1 ); //nz  BACK
-
-    THREE.Geometry.prototype.computeCentroids.call(geo);
-    THREE.Geometry.prototype.mergeVertices.call(geo);
-
-
-    function buildPlane( u, v, udir, vdir, width, height, depth, materialIndex ) {
-
-        var w, ix, iy,
-        gridX = scope.widthSegments,
-        gridY = scope.heightSegments,
-        width_half = width / 2,
-        height_half = height / 2,
-        offset = scope.vertices.length;
-
-        if ( ( u === 'x' && v === 'y' ) || ( u === 'y' && v === 'x' ) ) {
-
-            w = 'z';
-
-        } else if ( ( u === 'x' && v === 'z' ) || ( u === 'z' && v === 'x' ) ) {
-
-            w = 'y';
-            gridY = scope.depthSegments;
-
-        } else if ( ( u === 'z' && v === 'y' ) || ( u === 'y' && v === 'z' ) ) {
-
-            w = 'x';
-            gridX = scope.depthSegments;
-
-        }
-
-        var gridX1 = gridX + 1,
-        gridY1 = gridY + 1,
-        segment_width = width / gridX,
-        segment_height = height / gridY,
-        normal = new THREE.Vector3();
-
-        normal[ w ] = depth > 0 ? 1 : - 1;
-
-        for ( iy = 0; iy < gridY1; iy ++ ) {
-
-            for ( ix = 0; ix < gridX1; ix ++ ) {
-
-                var vector = new THREE.Vector3();
-                vector[ u ] = ( ix * segment_width - width_half ) * udir;
-                vector[ v ] = ( iy * segment_height - height_half ) * vdir;
-                vector[ w ] = depth;
-
-                scope.vertices.push( vector );
-
-            }
-
-        }
-
-        for ( iy = 0; iy < gridY; iy++ ) {
-
-            for ( ix = 0; ix < gridX; ix++ ) {
-
-                var a = ix + gridX1 * iy;
-                var b = ix + gridX1 * ( iy + 1 );
-                var c = ( ix + 1 ) + gridX1 * ( iy + 1 );
-                var d = ( ix + 1 ) + gridX1 * iy;
-
-                var plane = new THREE.Face4( a + offset, b + offset, c + offset, d + offset );
-                plane.normal.copy( normal );
-                plane.vertexNormals.push( normal.clone(), normal.clone(), normal.clone(), normal.clone() );
-                plane.materialIndex = materialIndex;
-
-                scope.faces.push( plane );
-                scope.faceVertexUvs[ 0 ].push( [
-                            new THREE.Vector2( ix / gridX, 1 - iy / gridY ),
-                            new THREE.Vector2( ix / gridX, 1 - ( iy + 1 ) / gridY ),
-                            new THREE.Vector2( ( ix + 1 ) / gridX, 1- ( iy + 1 ) / gridY ),
-                            new THREE.Vector2( ( ix + 1 ) / gridX, 1 - iy / gridY )
-                        ] );
-
-            }
-
-        }
-
-    }
-
-    return geo;
 }
 
 
 function initGui() {
 
+/*
     gui = new xgui({ width: 200, height: 300 });
 
     document.getElementById("gui").appendChild(gui.getDomElement());
@@ -298,17 +292,17 @@ function initGui() {
 
     nbRow++;
     new gui.Label( { x: 20, y: nbRow*hRow, text: "move" } );
-    new gui.CheckBox( { x: 75, y: nbRow*hRow, value: loopMove } )
+    new gui.CheckBox( { x: 75, y: nbRow*hRow, selected: loopMove } )
         .value.bind(window, "loopMove");
 
     nbRow++;
     new gui.Label( { x: 20, y: nbRow*hRow, text: "render" } );
-    new gui.CheckBox( { x: 75, y: nbRow*hRow, value: loopRender } )
+    new gui.CheckBox( { x: 75, y: nbRow*hRow, selected: loopRender } )
         .value.bind(window, "loopRender");
 
     nbRow++;
     new gui.Label( { x: 20, y: nbRow*hRow, text: "controls" } );
-    new gui.CheckBox( { x: 75, y: nbRow*hRow, value: controls.enabled } )
+    new gui.CheckBox( { x: 75, y: nbRow*hRow, selected: controls.enabled } )
         .value.bind(controls, "enabled");
 
     nbRow++;
@@ -321,6 +315,7 @@ function initGui() {
     new gui.Label( { x: 20, y: nbRow*hRow, text: "z:"});
     new gui.HSlider( { x: 75, y: nbRow*hRow, value: camera.position.z, min: -200, max:200 } )
         .value.bind(camera.position, "z");
+*/
 }
 
 function initControls() {
@@ -395,6 +390,11 @@ $(function () {
 
     loop();
 
+    var tweenEntrance0 = new TWEEN.Tween(ball.rotation)
+        .to(new THREE.Vector3( 0.5, 0.0,-0.2 ), 1000)
+        .easing( TWEEN.Easing.Bounce.Out )
+        .start()
+    ;
 
     
     // Test Tween
