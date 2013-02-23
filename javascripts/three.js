@@ -25287,7 +25287,14 @@ THREE.GeometryUtils = {
 		faces1 = geometry1.faces,
 		faces2 = geometry2.faces,
 		uvs1 = geometry1.faceVertexUvs[ 0 ],
-		uvs2 = geometry2.faceVertexUvs[ 0 ];
+		uvs2 = geometry2.faceVertexUvs[ 0 ],
+
+		//GD: return ref to the copies
+		copy = {
+			vertices: [],
+			faces: [],
+			uvs: []
+		};
 
 		if ( object2 instanceof THREE.Mesh ) {
 
@@ -25311,9 +25318,11 @@ THREE.GeometryUtils = {
 
 			if ( matrix ) vertexCopy.applyMatrix4( matrix );
 
-			vertices1.push( vertexCopy );
-
+			vertices1.push( vertexCopy )
+			
+			copy.vertices.push( vertexCopy )
 		}
+
 
 		// faces
 
@@ -25375,8 +25384,11 @@ THREE.GeometryUtils = {
 			}
 
 			faces1.push( faceCopy );
-
+			
+			faceCopy.id = faces1.length-1;
+			copy.faces.push( faceCopy );
 		}
+
 
 		// uvs
 
@@ -25392,8 +25404,10 @@ THREE.GeometryUtils = {
 
 			uvs1.push( uvCopy );
 
+			copy.uvs.push( uvCopy );
 		}
 
+		return copy;
 	},
 
 	removeMaterials: function ( geometry, materialIndexArray ) {

@@ -13,7 +13,7 @@ function initScene() {
     container = document.getElementById( 'container' );
 
     scene = new THREE.Scene();
-    scene.fog = new THREE.Fog( 0x000000, 0, 2000 );
+    //scene.fog = new THREE.Fog( 0x000000, 0, 2000 );
 
     var aspect = window.innerWidth / window.innerHeight;
 
@@ -27,22 +27,40 @@ function initScene() {
     scene.add( camera );
 
 
-    //material0 = new THREE.MeshBasicMaterial( {vertexColors: THREE.VertexColors} );
-    material0 = new THREE.MeshLambertMaterial({
-        color: 0xffffff,
-        transparent: false,
-        specular: 0xffffff,
-        shininess: 200
-    });
-
-    material1 = new THREE.MeshBasicMaterial( {
+    material0 = new THREE.MeshBasicMaterial( {
         color: 0x33b5e5,
         wireframe: true,
         opacity: 0.0,
         transparent: false
     } );
 
-    material2 = new THREE.ShaderMaterial({
+    material1 = new THREE.MeshLambertMaterial({
+        color: 0xffffff,
+        transparent: false,
+        specular: 0xffffff,
+        shininess: 200
+    });
+
+    var materials = (function(){
+        var a=[];
+        for (var i=0; i<6; i++) {
+          var img = new Image();
+          img.src = 'images/' + i + '.png';
+          var tex = new THREE.Texture(img);
+          img.tex = tex;
+
+          img.onload = function() {
+              this.tex.needsUpdate = true;
+          };
+
+          var mat = new THREE.MeshBasicMaterial({color: 0xffffff, map: tex});
+          a.push(mat);
+        }
+        return a;
+    })();
+    material2 = new THREE.MeshFaceMaterial( materials );
+
+    material3 = new THREE.ShaderMaterial({
         vertexShader:   $('#vertexshader').text(),
         fragmentShader: $('#fragmentshader').text()
     });
@@ -53,15 +71,20 @@ function initScene() {
         nbSegY = 21;
 
     // create the blue print
-    ball = THREE.SceneUtils.createMultiMaterialObject(
+    ball = new THREE.Mesh(
         new THREE.SphereGeometry( radius, nbSegX, nbSegY ),
-        [material1, new THREE.MeshBasicMaterial({ color: 0x3F748C })]
+        new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            vertexColors: THREE.FaceColors
+        })
     );
+    ball.dynamic = true;
     scene.add(ball);
 
+
     // create the play board out of it
-    var vs = ball.children[0].geometry.vertices,
-        fs = ball.children[0].geometry.faces, f,
+    var vs = ball.geometry.vertices,
+        fs = ball.geometry.faces, f,
         nbFaces = fs.length,
         nbRowsToSkip = 3,
         min = Math.round((nbSegX) * nbRowsToSkip),
@@ -81,14 +104,9 @@ function initScene() {
 
         mesh = new THREE.Mesh(
             createCube(w, h, 10 + 5 * Math.random()*0.005),
-            i%3==0 ? material2.clone() : material0.clone()
+            ball.material.clone()
         );
-
-        //mesh.material.color.setHSV(i/(max-min), 0.5, 0.7);
-        if(mesh.material instanceof THREE.ShaderMaterial){}else{
-            mesh.material.color.setHex(Math.random() * 0x008800 + 0x008800)
-        }
-
+        mesh.dynamic = true;
         mesh.position = f.centroid;
 
         // add some noise
@@ -106,10 +124,14 @@ function initScene() {
 
         mesh.lookAt(scene.position);
 
-        ball.add( mesh );
-        //THREE.GeometryUtils.merge(ball.geometry, mesh);
+        //ball.add( mesh );
+        blocks.push(THREE.GeometryUtils.merge(ball.geometry, mesh));
 
-        blocks.push({mesh:mesh});
+        blocks[blocks.length-1].faces.map(
+            function(o){
+                o.color.setHex(Math.random() * 0x008800 + 0x008800);
+            }
+        );
     }
     /*
     blocks.map(function(o,i,a){
@@ -129,6 +151,14 @@ function initScene() {
     light1 = new THREE.DirectionalLight( 0xffffff );
     light1.position.set( 200, 0, 200 );
     scene.add( light1 );
+
+    light2 = new THREE.DirectionalLight( 0xffffff );
+    light2.position.set( -200, 0, -200 );
+    scene.add( light2 );
+
+    light3 = new THREE.DirectionalLight( 0xffffff );
+    light3.position.set( 200, 0, -200 );
+    scene.add( light3 );
 
     try {
         // renderer
@@ -151,7 +181,7 @@ function initScene() {
 function createCube(width, height, depth){
     var geo, widthSegments, heightSegments, depthSegments;
 
-    geo = new THREE.Geometry();
+    geo = new THREE.Geometry({dynamic: true});
 
     var scope = geo;
 
@@ -167,12 +197,12 @@ function createCube(width, height, depth){
     var height_half = geo.height / 2;
     var depth_half = geo.depth / 2;
 
-    buildPlane( 'z', 'y', - 1, - 1, geo.depth, geo.height, width_half, 0 ); // px   RIGHT
+    buildPlane( 'z', 'y', - 1, - 1, geo.depth, geo.height, width_half, 1 ); // px   RIGHT
     buildPlane( 'z', 'y',   1, - 1, geo.depth, geo.height, - width_half, 1 ); //nx  LEFT
-    buildPlane( 'x', 'z',   1,   1, geo.width, geo.depth, height_half, 2 ); //py    TOP
-    buildPlane( 'x', 'z',   1, - 1, geo.width, geo.depth, - height_half, 3 ); //ny  BOTTOM
-    //buildPlane( 'x', 'y',   1, - 1, geo.width, geo.height, depth_half, 4 ); //pz  FRONT
-    buildPlane( 'x', 'y', - 1, - 1, geo.width, geo.height, - depth_half, 5 ); //nz  BACK
+    buildPlane( 'x', 'z',   1,   1, geo.width, geo.depth, height_half, 1 ); //py    TOP
+    buildPlane( 'x', 'z',   1, - 1, geo.width, geo.depth, - height_half, 1 ); //ny  BOTTOM
+    //buildPlane( 'x', 'y',   1, - 1, geo.width, geo.height, depth_half, 1 ); //pz  FRONT
+    buildPlane( 'x', 'y', - 1, - 1, geo.width, geo.height, - depth_half, 1 ); //nz  BACK
 
     THREE.Geometry.prototype.computeCentroids.call(geo);
     THREE.Geometry.prototype.mergeVertices.call(geo);
@@ -260,7 +290,7 @@ function createCube(width, height, depth){
 
 function initGui() {
 
-    gui = new xgui({ width: 200, height: 400 });
+    gui = new xgui({ width: 200, height: 300 });
 
     document.getElementById("gui").appendChild(gui.getDomElement());
 
@@ -291,28 +321,6 @@ function initGui() {
     new gui.Label( { x: 20, y: nbRow*hRow, text: "z:"});
     new gui.HSlider( { x: 75, y: nbRow*hRow, value: camera.position.z, min: -200, max:200 } )
         .value.bind(camera.position, "z");
-
-    nbRow++;
-    new gui.Label( {x: 20, y: (++nbRow+1)*hRow, text: "light0"});
-    var ligTrackPad =new gui.TrackPad( {x: 75, y: nbRow*hRow, min: -200, max: 200, value1: light0.position.x, value2: light0.position.y } );
-    ligTrackPad.value1.bind(light0.position, "x")
-    ligTrackPad.value2.bind(light0.position, "y");
-    nbRow += 5;
-
-    new gui.Label( { x: 20, y: nbRow*hRow, text: "z:"});
-    new gui.HSlider( { x: 75, y: nbRow*hRow, value: light0.position.z, min: -200, max:200 } )
-        .value.bind(light0.position, "z");
-
-    nbRow++;
-    new gui.Label( {x: 20, y: (++nbRow+1)*hRow, text: "light1"});
-    var ligTrackPad =new gui.TrackPad( {x: 75, y: nbRow*hRow, min: -200, max: 200, value1: light1.position.x, value2: light1.position.y } );
-    ligTrackPad.value1.bind(light1.position, "x")
-    ligTrackPad.value2.bind(light1.position, "y");
-    nbRow += 5;
-
-    new gui.Label( { x: 20, y: nbRow*hRow, text: "z:"});
-    new gui.HSlider( { x: 75, y: nbRow*hRow, value: light1.position.z, min: -200, max:200 } )
-        .value.bind(light1.position, "z");
 }
 
 function initControls() {
@@ -388,7 +396,7 @@ $(function () {
     loop();
 
 
-    /*
+    
     // Test Tween
     window.addEventListener( 'keyup', function(event){
 
@@ -396,14 +404,16 @@ $(function () {
 
             blocks.map(function(o,i,a){ if(Math.random()>0.3){
 
-                var m = o.mesh.material;
-                    c = m.color.getHSV();
+                var f = ball.geometry.faces[o.faces[4].id];
+                    c = f.color.getHSV();
 
-                new TWEEN.Tween({ color: m.color, h: 50, s: Math.random()*100, v: c.v })
+                new TWEEN.Tween({ color: f.color, h: 5, s: Math.random()*100, v: c.v })
                     .to({ h:c.h*100, s:c.s*100, c:c.v }, 2000)
                     .easing( TWEEN.Easing.Quartic.Out )
                     .onUpdate( function(){
                         this.color.setHSV(this.h/100, this.s/100, this.v);
+
+                        ball.geometry.colorsNeedUpdate = true;
                     })
                     .start();
             }});
@@ -411,6 +421,6 @@ $(function () {
         }
 
     }, false );
-    */
+    
 
 });
