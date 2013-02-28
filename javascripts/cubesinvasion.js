@@ -1,11 +1,15 @@
 
-var camera, cameraTarget, scene, renderer, gui, controls={};
+var camera, cameraTarget, scene, renderer, gui, controls={},
+    player0;
 var loopMove = false, loopRender = true;
 
 var material0, material1, material2,
     force = [2.5,2,2,1.5,2.5,3],
     array = [],
     ball;
+
+THREE.Vector3.Zero = new THREE.Vector3( 0, 0, 0 );
+
 
 
 function initScene() {
@@ -66,6 +70,10 @@ function initScene() {
         new THREE.SphereGeometry( radius, nbSegX, nbSegY ),
         material1.clone()
     );
+    ball.geometry.segmentsWidth = nbSegX;
+    ball.geometry.segmentsHeight = nbSegY;
+    ball.castShadow = false;
+    ball.receiveShadow = true;
     ball.dynamic = true;
     scene.add(ball);
 
@@ -73,6 +81,7 @@ function initScene() {
     // create the play board out of it
     var vs = ball.geometry.vertices,
         fs = ball.geometry.faces, f,
+        w, h, f, hex,
         nbFaces = fs.length,
         min = Math.round((nbSegX) * nbRowsToSkip),
         max = nbFaces - min,
@@ -84,18 +93,21 @@ function initScene() {
     blocks = [];
 
     for( var i = max-1; i >= min; i-- ){
+
         f = fs[i];
         
-        var w = ((vs[f.a].distanceTo(vs[f.b]))+(vs[f.c].distanceTo(vs[f.d])))/2,
-            h = ((vs[f.a].distanceTo(vs[f.d]))+(vs[f.b].distanceTo(vs[f.c])))/2
+        w = ((vs[f.a].distanceTo(vs[f.b]))+(vs[f.c].distanceTo(vs[f.d])))/2;
+        h = ((vs[f.a].distanceTo(vs[f.d]))+(vs[f.b].distanceTo(vs[f.c])))/2;
 
         mesh = new THREE.Mesh(
             createCube(w, h, 10 + 5 * Math.random()*0.005),
             ball.material
         );
-        mesh.dynamic = true;
-        mesh.position = f.centroid;
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
 
+        mesh.position = f.centroid;
+/*
         // add some noise
         ['a','b', 'c', 'd'].map(
             function(letter){
@@ -108,17 +120,18 @@ function initScene() {
             },
             {mf: mesh.geometry.faces[4], vs: mesh.geometry.vertices, dimensions: ['x','y','z']}
         );
-
+*/
         mesh.lookAt(scene.position);
+
+        hex = Math.random() * 0x008800 + 0x008800;
+        mesh.geometry.faces.map(
+            function(f){
+                f.color.setHex(hex);
+            }
+        );
 
         //ball.add( mesh );
         blocks.push(THREE.GeometryUtils.merge(ball.geometry, mesh));
-
-        blocks[blocks.length-1].faces.map(
-            function(o){
-                o.color.setHex(Math.random() * 0x008800 + 0x008800);
-            }
-        );
     }
     /*
     blocks.map(function(o,i,a){
@@ -132,6 +145,14 @@ function initScene() {
     */
 
     light0 = new THREE.DirectionalLight( 0xffffff );
+    light0.castShadow = false;
+    light0.shadowCameraVisible = false;
+    light0.shadowCameraNear = 170;
+    light0.shadowCameraFar = 400;
+    light0.shadowCameraLeft = -120;
+    light0.shadowCameraRight = 120;
+    light0.shadowCameraTop = 120;
+    light0.shadowCameraBottom = -120;
     light0.position.set( -200, 0, 200 );
     scene.add( light0 );
 
@@ -152,6 +173,9 @@ function initScene() {
         renderer = new THREE.WebGLRenderer({antialias: true});
         renderer.setClearColorHex( 0x000000, 1 );
         renderer.setSize( window.innerWidth, window.innerHeight );
+
+        renderer.shadowMapEnabled = false;
+        renderer.shadowMapSoft = true;
     
         container.appendChild( renderer.domElement );
         has_gl = true;
@@ -159,11 +183,13 @@ function initScene() {
         window.addEventListener('resize', onWindowResize, false);
 
         initPlayers();
+
+        return;
     }
     catch (e) {
         // need webgl
         alert("WebGL is needed!");
-        return;
+        return e;
     }
 
     function createCube(width, height, depth){
@@ -277,6 +303,56 @@ function initScene() {
 }
 
 function initPlayers(){
+    Player = function(){
+
+        this.mesh = new THREE.Mesh(
+            new THREE.CubeGeometry(1, 30, 1, 1, 1, 1),
+            new THREE.MeshBasicMaterial( { color: 0xff1111 } )
+        );
+
+        ball.add(this.mesh);
+
+        this.ballFaceId = 100;
+        this.prevBallFaceId = 0;
+        this.prevBallFaceColor = new THREE.Color(0x008800);
+
+        this.moveTo = function(faceId){
+            var bf = ball.geometry.faces[faceId];
+
+            new TWEEN.Tween( this.mesh.position )
+                .to( bf.centroid , 400)
+                .easing( TWEEN.Easing.Quintic.Out )
+                .onUpdate( function(){
+                    player0.mesh.position = this;
+                })
+                .start()
+            ;
+/*
+            blocks[this.prevBallFaceId].faces.map(
+                function(f){
+                    f.color = this.prevBallFaceColor;
+                }
+            );
+            this.prevBallFaceColor = blocks[faceId].faces[4].color;
+            blocks[faceId].faces.map(
+                function(f){
+                    f.color = new THREE.Color(0xff4444);
+                }
+            );
+*/
+            this.mesh.position = bf.centroid;
+            this.mesh.rotation = 
+                (new THREE.Vector3(0, 1, 0) )
+                .cross( bf.normal )
+            ;
+
+            this.ballFaceId = faceId;
+        };
+    };
+
+    player0 = new Player();
+
+    player0.moveTo( 105 );
 
 }
 
@@ -321,12 +397,7 @@ function initGui() {
 function initControls() {
 
     controls = new THREE.TrackballControls(camera, container);
-    controls.target.set(0, 0, 0);
-
-    controls.noZoom = true;
-    controls.noPan = true;
-
-    controls.keys = [65, 83, 68];
+    controls.target.set(0.0, 0.0, 0.1);
 }
 
 
@@ -379,10 +450,7 @@ function loop() {
 
 $(function () {
 
-    initScene();
-
-    if(typeof renderer == "undefined")
-        alert("No renderer ready");
+    if( !( typeof initScene() === "undefined" ) ) return;
 
     initGui();
 
@@ -396,31 +464,51 @@ $(function () {
         .start()
     ;
 
+
     
     // Test Tween
-    window.addEventListener( 'keyup', function(event){
+    window.addEventListener( 'keyup', function(e){
 
-        if(event.keyCode == 65){
+        //console.log(e.keyCode);
+        
+        switch(e.keyCode){
 
-            blocks.map(function(o,i,a){ if(Math.random()>0.3){
+            case 69:
+                blocks.map(function(o,i,a){ if(Math.random()>0.3){
 
-                var f = ball.geometry.faces[o.faces[4].id];
-                    c = f.color.getHSV();
+                    var f = ball.geometry.faces[o.faces[4].id];
+                        c = f.color.getHSV();
 
-                new TWEEN.Tween({ color: f.color, h: 5, s: Math.random()*100, v: c.v })
-                    .to({ h:c.h*100, s:c.s*100, c:c.v }, 2000)
-                    .easing( TWEEN.Easing.Quartic.Out )
-                    .onUpdate( function(){
-                        this.color.setHSV(this.h/100, this.s/100, this.v);
+                    new TWEEN.Tween({ color: f.color, h: 5, s: Math.random()*100, v: c.v })
+                        .to({ h:c.h*100, s:c.s*100, c:c.v }, 2000)
+                        .easing( TWEEN.Easing.Quartic.Out )
+                        .onUpdate( function(){
+                            this.color.setHSV(this.h/100, this.s/100, this.v);
 
-                        ball.geometry.colorsNeedUpdate = true;
-                    })
-                    .start();
-            }});
+                            ball.geometry.colorsNeedUpdate = true;
+                        })
+                        .start();
+                }});
+                break;
+        
+            case 65:
+                player0.moveTo( player0.ballFaceId - 1 );
+                break;
+        
+            case 68:
+                player0.moveTo( player0.ballFaceId + 1 );
+                break;
+        
+            case 87:
+                player0.moveTo( player0.ballFaceId - ball.geometry.segmentsWidth );
+                break;
+        
+            case 83:
+                player0.moveTo( player0.ballFaceId + ball.geometry.segmentsWidth );
+                break;
 
         }
 
     }, false );
-    
 
 });
