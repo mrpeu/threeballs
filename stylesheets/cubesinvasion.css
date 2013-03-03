@@ -17,17 +17,9 @@ body {
 	z-index: 11;
 	position: absolute;
 	font: 10px/1.2 Verdana, Arial, Helvetica, Sans-Serif;
-	color: #ccc;
+	color: #aaa;
 
-/*
-	margin: 1.0em;
-	padding: 10px;
-*/
-
-	height: 300px;
-	width: auto;
-	overflow-x: hidden;
-	overflow-y: auto;
+	padding: 4px 4px 24px 4px;
 }
 
 #gui>* {

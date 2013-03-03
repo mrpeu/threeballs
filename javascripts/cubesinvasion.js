@@ -1,6 +1,9 @@
 
 var camera, cameraTarget, scene, renderer, gui, controls={},
-    player0;
+    player0, 
+    nbSegX = 40,
+    nbSegY = 20
+;
 var loopMove = false, loopRender = true;
 
 var material0, material1, material2,
@@ -13,8 +16,6 @@ THREE.Vector3.Zero = new THREE.Vector3( 0, 0, 0 );
 
 
 function initScene() {
-
-    container = document.getElementById( 'container' );
 
     scene = new THREE.Scene();
     //scene.fog = new THREE.Fog( 0x000000, 0, 2000 );
@@ -54,14 +55,12 @@ function initScene() {
 
     // from GLSL
     material3 = new THREE.ShaderMaterial({
-        vertexShader:   $('#vertexshader').text(),
-        fragmentShader: $('#fragmentshader').text()
+        vertexShader:   document.getElementById('vertexshader').innerHTML,
+        fragmentShader: document.getElementById('fragmentshader').innerHTML
     });
 
 
     var radius = 70,
-        nbSegX = 40,
-        nbSegY = 20,
         nbRowsToSkip = 3
     ;
 
@@ -131,7 +130,11 @@ function initScene() {
         );
 
         //ball.add( mesh );
-        blocks.push(THREE.GeometryUtils.merge(ball.geometry, mesh));
+
+        blocks.push( {
+            mesh: THREE.GeometryUtils.merge(ball.geometry, mesh),
+            state: 0
+        });
     }
     /*
     blocks.map(function(o,i,a){
@@ -177,6 +180,8 @@ function initScene() {
         renderer.shadowMapEnabled = false;
         renderer.shadowMapSoft = true;
     
+        container = document.getElementById( 'container' );
+
         container.appendChild( renderer.domElement );
         has_gl = true;
 
@@ -312,34 +317,32 @@ function initPlayers(){
 
         ball.add(this.mesh);
 
-        this.ballFaceId = 100;
+        this.ballFaceId = 110;
         this.prevBallFaceId = 0;
         this.prevBallFaceColor = new THREE.Color(0x008800);
 
         this.moveTo = function(faceId){
-            var bf = ball.geometry.faces[faceId];
+            var bf = ball.geometry.faces[Math.round(faceId)];
 
             new TWEEN.Tween( this.mesh.position )
                 .to( bf.centroid , 400)
                 .easing( TWEEN.Easing.Quintic.Out )
                 .onUpdate( function(){
                     player0.mesh.position = this;
+
+            blocks[faceId].mesh.faces.map(
+                function(f){
+                    ball.geometry.faces[f.id].color.setHSV(0, 0.93, 1);
+                    console.log(ball.geometry.faces[f.id].color.getHexString());
+                }
+            );
+            ball.geometry.colorsNeedUpdate = true;
                 })
                 .start()
             ;
-/*
-            blocks[this.prevBallFaceId].faces.map(
-                function(f){
-                    f.color = this.prevBallFaceColor;
-                }
-            );
-            this.prevBallFaceColor = blocks[faceId].faces[4].color;
-            blocks[faceId].faces.map(
-                function(f){
-                    f.color = new THREE.Color(0xff4444);
-                }
-            );
-*/
+
+            //this.prevBallFaceColor = ball.geometry.faces[blocks[this.faceId].mesh.faces[4]].color;
+
             this.mesh.position = bf.centroid;
             this.mesh.rotation = 
                 (new THREE.Vector3(0, 1, 0) )
@@ -352,12 +355,25 @@ function initPlayers(){
 
     player0 = new Player();
 
-    player0.moveTo( 105 );
+    player0.moveTo( 166 );
 
 }
 
 
 function initGui() {
+
+    gui = new dat.GUI({autoPlace: false});
+
+
+    gui.add(player0, "ballFaceId", 0, nbSegX*nbSegY)
+        .listen()
+        .onChange(function(v){
+            player0.moveTo(v);
+        })
+    ;
+
+
+    document.getElementById("gui").appendChild(gui.domElement);
 
 /*
     gui = new xgui({ width: 200, height: 300 });
@@ -448,7 +464,7 @@ function loop() {
 
     
 
-$(function () {
+window.onload = function () {
 
     if( !( typeof initScene() === "undefined" ) ) return;
 
@@ -467,7 +483,7 @@ $(function () {
 
     
     // Test Tween
-    window.addEventListener( 'keyup', function(e){
+    window.addEventListener( 'keydown', function(e){
 
         //console.log(e.keyCode);
         
@@ -476,7 +492,7 @@ $(function () {
             case 69:
                 blocks.map(function(o,i,a){ if(Math.random()>0.3){
 
-                    var f = ball.geometry.faces[o.faces[4].id];
+                    var f = ball.geometry.faces[o.mesh.faces[4].id];
                         c = f.color.getHSV();
 
                     new TWEEN.Tween({ color: f.color, h: 5, s: Math.random()*100, v: c.v })
@@ -511,4 +527,4 @@ $(function () {
 
     }, false );
 
-});
+};
