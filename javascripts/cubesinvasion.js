@@ -40,11 +40,34 @@ function initScene() {
     } );
 
     // Lambert
+    /*
     material1 = new THREE.MeshLambertMaterial({
         color: 0xffffff,
         specular: 0xffffff,
         shininess: 200,
         vertexColors: THREE.FaceColors
+    });
+    */
+
+    textureCube = function(){
+
+        var r = "../images/";
+        var urls = [
+            r + "posz.jpg",
+            r + "posz.jpg",
+            r + "posz.jpg",
+            r + "posz.jpg",
+            r + "posz.jpg",
+            r + "posz.jpg"
+        ];
+        var t = THREE.ImageUtils.loadTextureCube( urls );
+        t.format = THREE.RGBFormat;
+
+        return t;
+    };
+    material1 = new THREE.MeshPhongMaterial( { ambient: 0xffffff, color: 0xffffff,
+        specular: 0x888888, shininess: 30, envMap:textureCube(), 
+        combine: THREE.MixOperation, reflectivity: 0.35, vertexColors: THREE.VertexColors
     });
 
     // Basic
@@ -65,6 +88,7 @@ function initScene() {
     ;
 
     // create the blue print
+    // ball = THREE.SceneUtils.createMultiMaterialObject(
     ball = new THREE.Mesh(
         new THREE.SphereGeometry( radius, nbSegX, nbSegY ),
         material1.clone()
@@ -99,14 +123,14 @@ function initScene() {
         h = ((vs[f.a].distanceTo(vs[f.d]))+(vs[f.b].distanceTo(vs[f.c])))/2;
 
         mesh = new THREE.Mesh(
-            createCube(w, h, 10 + 5 * Math.random()*0.005),
+            createCube(w, h, 10 + 5 * Math.random()*0.005, 2),
             ball.material
         );
         mesh.castShadow = false;
         mesh.receiveShadow = false;
 
         mesh.position = f.centroid;
-/*
+
         // add some noise
         ['a','b', 'c', 'd'].map(
             function(letter){
@@ -119,7 +143,7 @@ function initScene() {
             },
             {mf: mesh.geometry.faces[4], vs: mesh.geometry.vertices, dimensions: ['x','y','z']}
         );
-*/
+
         mesh.lookAt(scene.position);
 
         hex = Math.random() * 0x008800 + 0x008800;
@@ -197,7 +221,7 @@ function initScene() {
         return e;
     }
 
-    function createCube(width, height, depth){
+    function createCube(width, height, depth, materialIndex){
         var geo, widthSegments, heightSegments, depthSegments;
 
         geo = new THREE.Geometry({dynamic: true});
@@ -216,12 +240,12 @@ function initScene() {
         var height_half = geo.height / 2;
         var depth_half = geo.depth / 2;
 
-        buildPlane( 'z', 'y', - 1, - 1, geo.depth, geo.height, width_half, 1 ); // px   RIGHT
-        buildPlane( 'z', 'y',   1, - 1, geo.depth, geo.height, - width_half, 1 ); //nx  LEFT
-        buildPlane( 'x', 'z',   1,   1, geo.width, geo.depth, height_half, 1 ); //py    TOP
-        buildPlane( 'x', 'z',   1, - 1, geo.width, geo.depth, - height_half, 1 ); //ny  BOTTOM
-        //buildPlane( 'x', 'y',   1, - 1, geo.width, geo.height, depth_half, 1 ); //pz  FRONT
-        buildPlane( 'x', 'y', - 1, - 1, geo.width, geo.height, - depth_half, 1 ); //nz  BACK
+        buildPlane( 'z', 'y', - 1, - 1, geo.depth, geo.height, width_half, materialIndex ); // px   RIGHT
+        buildPlane( 'z', 'y',   1, - 1, geo.depth, geo.height, - width_half, materialIndex ); //nx  LEFT
+        buildPlane( 'x', 'z',   1,   1, geo.width, geo.depth, height_half, materialIndex ); //py    TOP
+        buildPlane( 'x', 'z',   1, - 1, geo.width, geo.depth, - height_half, materialIndex ); //ny  BOTTOM
+        //buildPlane( 'x', 'y',   1, - 1, geo.width, geo.height, depth_half, materialIndex ); //pz  FRONT
+        buildPlane( 'x', 'y', - 1, - 1, geo.width, geo.height, - depth_half, materialIndex ); //nz  BACK
 
         THREE.Geometry.prototype.computeCentroids.call(geo);
         THREE.Geometry.prototype.mergeVertices.call(geo);
@@ -322,26 +346,25 @@ function initPlayers(){
         this.prevBallFaceColor = new THREE.Color(0x008800);
 
         this.moveTo = function(faceId){
-            var bf = ball.geometry.faces[Math.round(faceId)];
+            var bf = ball.geometry.faces[faceId];
 
             new TWEEN.Tween( this.mesh.position )
                 .to( bf.centroid , 400)
                 .easing( TWEEN.Easing.Quintic.Out )
                 .onUpdate( function(){
                     player0.mesh.position = this;
-
-            blocks[faceId].mesh.faces.map(
-                function(f){
-                    ball.geometry.faces[f.id].color.setHSV(0, 0.93, 1);
-                    console.log(ball.geometry.faces[f.id].color.getHexString());
-                }
-            );
-            ball.geometry.colorsNeedUpdate = true;
                 })
                 .start()
             ;
 
             //this.prevBallFaceColor = ball.geometry.faces[blocks[this.faceId].mesh.faces[4]].color;
+
+            blocks[faceId].mesh.faces.map(
+                function(f){
+                    ball.geometry.faces[f.id].color.setHSV(0, 0.93, 1);
+                }
+            );
+            ball.geometry.colorsNeedUpdate = true;
 
             this.mesh.position = bf.centroid;
             this.mesh.rotation = 
