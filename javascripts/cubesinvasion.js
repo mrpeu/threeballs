@@ -51,7 +51,7 @@ function initScene() {
 
     textureCube = function(){
 
-        var r = "../images/";
+        var r = "images/";
         var urls = [
             r + "posz.jpg",
             r + "posz.jpg",
